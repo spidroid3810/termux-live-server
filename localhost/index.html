@@ -1,150 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<script src="//cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IndexedDB File Upload</title>
-<style>
-  .preview-image {
-    max-width: 300px;
-    max-height: 300px;
-    margin-bottom: 20px;
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post Form</title>
 </head>
 <body>
-  <h1>Upload Media</h1>
-  <form id="uploadForm">
-    <input type="file" id="mediaFile" accept="image/*, video/*" required>
-    <button type="button" onclick="uploadFile()">Upload</button>
-  </form>
-  <div id="preview"></div>
+    <form id="postForm">
+        <input type="text" name="message" placeholder="Enter your message">
+        <button type="submit">Submit</button>
+    </form>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      initIndexedDB();
-      loadFromIndexedDB();
-    });
+    <script>
+        document.getElementById("postForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const message = formData.get("message");
 
-    function initIndexedDB() {
-      const dbName = 'uploadedFilesDB';
-      const dbVersion = 1;
-      const storeName = 'uploadedFiles';
-
-      const request = indexedDB.open(dbName, dbVersion);
-
-      request.onerror = function(event) {
-        console.error('Failed to open IndexedDB:', event.target.errorCode);
-      };
-
-      request.onupgradeneeded = function(event) {
-        const db = event.target.result;
-        const objectStore = db.createObjectStore(storeName, { keyPath: 'filename' });
-        objectStore.createIndex('filename', 'filename', { unique: true });
-      };
-
-      request.onsuccess = function(event) {
-        console.log('IndexedDB initialized successfully');
-      };
-    }
-
-    function uploadFile() {
-      const fileInput = document.getElementById('mediaFile');
-      const file = fileInput.files[0];
-      
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          const preview = document.getElementById('preview');
-          const mediaType = file.type.split('/')[0];
-          if (mediaType === 'image') {
-            const img = document.createElement('img');
-            img.src = e.target.result;
-            img.classList.add('preview-image');
-            preview.appendChild(img);
-          } else if (mediaType === 'video') {
-            const video = document.createElement('video');
-            video.src = e.target.result;
-            video.controls = true;
-            video.classList.add('preview-image');
-            preview.appendChild(video);
-          }
-
-          // Save file to IndexedDB
-          saveToIndexedDB(file, e.target.result);
-          alert('Media uploaded and saved successfully!');
-        };
-        reader.readAsDataURL(file);
-      }
-    }
-
-    function saveToIndexedDB(file, data) {
-      const dbName = 'uploadedFilesDB';
-      const storeName = 'uploadedFiles';
-
-      const request = indexedDB.open(dbName);
-
-      request.onerror = function(event) {
-        console.error('Failed to open IndexedDB:', event.target.errorCode);
-      };
-
-      request.onsuccess = function(event) {
-        const db = event.target.result;
-        const transaction = db.transaction([storeName], 'readwrite');
-        const objectStore = transaction.objectStore(storeName);
-
-        const fileData = {
-          filename: file.name,
-          type: file.type,
-          data: data
-        };
-
-        const addRequest = objectStore.add(fileData);
-        addRequest.onsuccess = function(event) {
-          console.log('File added to IndexedDB:', event.target.result);
-        };
-
-        transaction.oncomplete = function() {
-          db.close();
-        };
-      };
-    }
-
-    function loadFromIndexedDB() {
-    const dbName = 'uploadedFilesDB';
-    const storeName = 'uploadedFiles';
-    
-    const request = indexedDB.open(dbName);
-    
-    request.onerror = function(event) {
-    console.error('Failed to open IndexedDB:', event.target.errorCode);
-    };
-    
-    request.onsuccess = function(event) {
-    const db = event.target.result;
-    const transaction = db.transaction([storeName], 'readonly');
-    const objectStore = transaction.objectStore(storeName);
-    
-    objectStore.getAll().onsuccess = function(event) {
-    const files = event.target.result;
-    files.forEach(function(file) {
-    const preview = document.getElementById('preview');
-    const mediaType = file.type.split('/')[0];
-    if (mediaType === 'image' || mediaType === 'video') {
-    const mediaElement = mediaType === 'image' ? document.createElement('img') : document.createElement('video');
-    mediaElement.src = file.data;
-    mediaElement.controls = true;
-    mediaElement.classList.add('preview-image');
-    preview.appendChild(mediaElement);
-    }
-    });
-    db.close();
-    };
-    };
-    }
-    
-  </script>
+            fetch("/save", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ message })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Network response was not ok");
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Message saved:", data);
+            })
+            .catch(error => {
+                console.error("Error saving message:", error);
+            });
+        });
+    </script>
 </body>
 </html>
